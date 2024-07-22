@@ -8,4 +8,5 @@
 Настройка периода и длительности полива с помощью потенциометров на плате.
 
 ## Принципиальная схема
-![SCH_schematic3_1-P1_2024-07-22(1)](https://github.com/user-attachments/assets/2450bb2d-1386-45eb-8f56-8f8834690c2c)
+![schematic](https://github.com/user-attachments/assets/27206f9c-6499-4090-8910-a32ad5e99fa1)
+
