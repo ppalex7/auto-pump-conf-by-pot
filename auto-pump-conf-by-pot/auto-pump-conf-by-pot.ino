@@ -35,10 +35,13 @@ volatile bool watchdog_flag = false;
 volatile uint32_t main_timer = 0;
 volatile uint16_t pump_timer = 0;
 // число тактов процессора (деленное на 2048), проходящее за одно срабатывание watchdog
-volatile uint16_t watchdog_ticks = 2343;
+volatile uint16_t watchdog_ticks = 0;
 
 // INT0_vect
 volatile bool button_pressed = true;
+
+// TIM0_OVF_vect
+volatile uint8_t timer_overflow;
 
 uint16_t interval, duration;
 uint32_t interval_time = 0xFFFFFFFF;
@@ -73,9 +76,13 @@ void blinkDuration() {
 }
 
 void setup() {
+  ADCSRA = _BV(ADPS2) | _BV(ADPS0);
+
   wdt_enable(WDTO_1S);  // разрешаем ватчдог
   bitSet(WDTCR, WDTIE); // разрешаем прерывания по ватчдогу. Иначе будет резет.
   sei();                // разрешаем прерывания
+
+  measureWatchDogTick();
 
   // включаем прерывания по низкому уровню PB1 (кнопка)
   bitSet(GIMSK, INT0);
@@ -128,6 +135,35 @@ void loop() {
 
   sleep_enable();  // разрешаем сон
   sleep_cpu();     // спать!
+}
+
+void measureWatchDogTick() {
+  // enter synchronization mode
+  GTCCR = _BV(TSM) | _BV(PSR10);
+
+  // Set a suited prescaler based on F_CPU
+  TCCR0B = _BV(CS02); // F_CPU/256
+  // Enable overflow interrupt on Timer0
+  TIMSK0 = _BV(TOIE0);
+  // Set timer0 couter to zero
+  TCNT0 = 0;
+  timer_overflow = 0;
+
+  // ждем "первое" срабатывание watchdog
+  while (!watchdog_flag) {
+  }
+  // запускаем таймер
+  bitClear(GTCCR, TSM);
+  watchdog_flag = false;
+
+  // ждем "второе" срабатывание watchdog
+  while (!watchdog_flag) {
+  }
+  // выключаем таймер
+  TCCR0B = 0;
+
+  // считываем, сколько 256*тактов CPU натикало и сдвигаем на 3 (чтобы попасть в 32 бита для 16ти дней)
+  watchdog_ticks = ((timer_overflow << 8) + TCNT0) >> 3;
 }
 
 void readPotentiometers() {
@@ -186,4 +222,8 @@ ISR(INT0_vect) {
   // отключаем прерывание, чтобы оно не продолжало срабатывать по нажатой кнопке
   bitClear(GIMSK, INT0);
   button_pressed = true;
+}
+
+ISR(TIM0_OVF_vect) {
+  timer_overflow++; // Increment counter by one
 }
