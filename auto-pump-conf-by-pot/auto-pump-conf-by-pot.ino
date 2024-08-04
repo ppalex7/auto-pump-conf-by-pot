@@ -1,6 +1,8 @@
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 
+#define INVERSE_POT
+
 /*
   Как устроен таймер: используем такты процессора (деленные на множитель) вместо секунд.
 
@@ -139,14 +141,22 @@ void readPotentiometers() {
   ADCSRA |= _BV(ADEN) | _BV(ADSC);
   while (bit_is_set(ADCSRA, ADSC)); // Wait for conversion
 
+#ifdef INVERSE_POT
+  interval = 0x3ff - ADCW;
+#else
   interval = ADCW;
+#endif
   interval_time = INTERVAL_STEP * (uint32_t) interval;
 
   ADMUX = 0b00000011;  // ADC3 (PB3)
   bitSet(ADCSRA, ADSC);
   while (bit_is_set(ADCSRA, ADSC)); // Wait for conversion
 
+#ifdef INVERSE_POT
+  duration = 0x3ff - ADCW;
+#else
   duration = ADCW;
+#endif
 
   // выключаем подачу напряжения на потенциометры
   disablePins();
