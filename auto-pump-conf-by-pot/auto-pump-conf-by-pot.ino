@@ -45,6 +45,7 @@ volatile uint8_t timer_overflow;
 
 uint16_t interval, duration;
 uint32_t interval_time = 0xFFFFFFFF;
+uint8_t count = 0;
 
 void disablePins() {
   DDRB = 0;
@@ -101,6 +102,7 @@ void loop() {
       // выключаем всё
       disablePins();
       main_timer = 0;
+      count++;
     }
   } else {
     // полив не активен
@@ -118,6 +120,9 @@ void loop() {
       while (blinks--) {
         blinkDuration();
       }
+
+      __builtin_avr_delay_cycles(960000);
+      showCount();
 
       button_pressed = false;
       // прерывание включается обратно из watchdog
@@ -198,6 +203,17 @@ void readPotentiometers() {
   disablePins();
   // выключаем ADC
   bitClear(ADCSRA, ADEN);
+}
+
+void showCount() {
+  uint8_t blinks = count;
+  while (blinks--) {
+    turnOnInterval();
+    __builtin_avr_delay_cycles(480000);
+    turnOnDuration();
+    __builtin_avr_delay_cycles(1440000);
+  }
+  disablePins();
 }
 
 ISR(WDT_vect) {
