@@ -64,20 +64,24 @@ void turnOnDuration() {
 
 void blinkInterval() {
   turnOnInterval();
-  __builtin_avr_delay_cycles(1440000);
+  sleepOnTimer(88); // ~300ms
   disablePins();
-  __builtin_avr_delay_cycles(1440000);
+  sleepOnTimer(88); // ~300ms
 }
 
 void blinkDuration() {
   turnOnDuration();
-  __builtin_avr_delay_cycles(1600000);
+  sleepOnTimer(97); // ~331 ms
   disablePins();
-  __builtin_avr_delay_cycles(1600000);
+  sleepOnTimer(97); // ~331 ms
 }
 
 void setup() {
   ADCSRA = _BV(ADPS2) | _BV(ADPS0);
+
+  // Enable overflow interrupt on Timer0
+  // used in sleepOnTimer and measureWatchDogTick
+  TIMSK0 = _BV(TOIE0);
 
   wdt_enable(WDTO_1S);  // разрешаем ватчдог
   bitSet(WDTCR, WDTIE); // разрешаем прерывания по ватчдогу. Иначе будет резет.
@@ -121,7 +125,8 @@ void loop() {
         blinkDuration();
       }
 
-      __builtin_avr_delay_cycles(960000);
+      sleepOnTimer(58); // ~198ms
+
       showCount();
 
       button_pressed = false;
@@ -153,8 +158,6 @@ void measureWatchDogTick() {
 
   // Set a suited prescaler based on F_CPU
   TCCR0B = _BV(CS02); // F_CPU/256
-  // Enable overflow interrupt on Timer0
-  TIMSK0 = _BV(TOIE0);
   // Set timer0 couter to zero
   TCNT0 = 0;
   timer_overflow = 0;
@@ -181,7 +184,7 @@ void readPotentiometers() {
   PORTB = 0; // хотя рассчитываем, что оно уже
   DDRB = 0b00000010;
   // даем устаканиться
-  __builtin_avr_delay_cycles(33600);  // 80 ms
+  sleepOnTimer(23); // ~78 ms
 
   ADMUX = 0b00000010;  // ADC2 (PB4)
   ADCSRA |= _BV(ADEN) | _BV(ADSC);
@@ -214,9 +217,9 @@ void showCount() {
   uint8_t blinks = count;
   while (blinks--) {
     turnOnInterval();
-    __builtin_avr_delay_cycles(480000);
+    sleepOnTimer(29); // ~99ms
     turnOnDuration();
-    __builtin_avr_delay_cycles(1440000);
+    sleepOnTimer(88); // ~300ms
   }
   disablePins();
 }
@@ -247,4 +250,18 @@ ISR(INT0_vect) {
 
 ISR(TIM0_OVF_vect) {
   timer_overflow++; // Increment counter by one
+}
+
+
+void sleepOnTimer(uint8_t value) {
+  TCNT0 = 0;
+  timer_overflow = 0xFF - value;
+
+  TCCR0B = _BV(CS01) | _BV(CS00); // F_CPU/64
+
+  while(timer_overflow) {
+  }
+
+  // выключаем таймер
+  TCCR0B = 0;
 }
